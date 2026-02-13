@@ -29,6 +29,7 @@
       overflow:hidden;
     }
 
+    /* Bigger + more visible hearts */
     .hearts{ position:fixed; inset:0; pointer-events:none; opacity:.55; }
     .heart{
       position:absolute;
@@ -83,7 +84,7 @@
       letter-spacing:-0.02em;
     }
 
-    /* Absolute layout so YES never shifts */
+    /* Buttons */
     .buttons{
       margin-top:26px;
       position:relative;
@@ -99,11 +100,11 @@
       font-size:18px;
       cursor:pointer;
       box-shadow: 0 10px 20px rgba(0,0,0,.06);
-      transition: transform .12s ease, box-shadow .12s ease;
+      transition: box-shadow .12s ease;
       user-select:none;
       touch-action: manipulation;
       min-width: 120px;
-      position:absolute; /* IMPORTANT: no layout shifting */
+      position:absolute;
       top:50%;
       left:50%;
     }
@@ -115,19 +116,21 @@
     #yesBtn{
       background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 78%, white), #ffd3e3);
       border-color:#ffffff90;
-      transform: translate(calc(-50% - 90px), -50%); /* left of center */
+      transform: translate(calc(-50% - 90px), -50%);
       z-index:2;
     }
-    /* lock YES from moving on hover */
     #yesBtn:hover{
       transform: translate(calc(-50% - 90px), -50%);
-      box-shadow: 0 14px 26px rgba(0,0,0,.08);
     }
 
-    /* NO = right initially, then JS moves it */
+    /* NO is moved to body and becomes fixed */
     #noBtn{
-      transform: translate(calc(-50% + 90px), -50%); /* right of center */
-      z-index:1;
+      position: fixed;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: 9999;
+      will-change: transform;
+      transform: translate3d(0,0,0);
     }
   </style>
 </head>
@@ -145,6 +148,7 @@
   </main>
 
 <script>
+  // Optional personalization via URL:
   const params = new URLSearchParams(location.search);
   const name = params.get("name") || "Karine";
   const msg  = params.get("msg")  || "will you be my Valentine? 💗";
@@ -157,18 +161,18 @@
     window.location.href = "./yes.html" + (location.search || "");
   });
 
-  // --- ВАЖНО: выносим No из карточки, чтобы она каталась по всему экрану
+  // Move NO to body so it can roam the whole screen
   document.body.appendChild(noBtn);
 
-  // полностью блокируем клики по No
-  ["pointerdown", "click", "mousedown", "touchstart"].forEach(evt => {
+  // Hard block clicks/taps on NO
+  ["pointerdown","click","mousedown","touchstart"].forEach(evt => {
     noBtn.addEventListener(evt, (e) => {
       e.preventDefault();
       e.stopPropagation();
-    }, { passive: false });
+    }, { passive:false });
   });
 
-  // ---------- Плавное убегание (физика) ----------
+  // Measure NO size
   let noW = 0, noH = 0;
   function measureNo(){
     noW = noBtn.offsetWidth;
@@ -176,53 +180,55 @@
   }
   measureNo();
 
-  // позиция No (верх-левый угол) и скорость
+  // Position & velocity
   let x = 0, y = 0, vx = 0, vy = 0;
 
-  // курсор
-  let cursorX = window.innerWidth / 2;
-  let cursorY = window.innerHeight / 2;
+  // Cursor (inactive until first move)
+  let cursorX = -9999, cursorY = -9999;
+  let hasPointer = false;
 
   window.addEventListener("pointermove", (e) => {
+    hasPointer = true;
     cursorX = e.clientX;
     cursorY = e.clientY;
   });
 
   function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
-  // стартовая позиция: справа от YES
+  // Initial position near YES (to the right)
   function placeInitial(){
     const r = yesBtn.getBoundingClientRect();
     x = r.right + 30;
     y = r.top + (r.height / 2) - (noH / 2);
-    // можно чуть “за края окна” — оставляем небольшой отрицательный margin
+
     const out = Math.min(40, noW * 0.35);
     const minX = -out;
     const minY = -out;
     const maxX = window.innerWidth  - noW + out;
     const maxY = window.innerHeight - noH + out;
+
     x = clamp(x, minX, maxX);
     y = clamp(y, minY, maxY);
+
+    noBtn.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   }
   placeInitial();
 
-  // параметры поведения
-  const CURSOR_RADIUS   = 190;  // как близко курсор должен быть
-  const CURSOR_FORCE    = 1.25; // сила отталкивания от курсора
-  const YES_PAD         = 50;   // “запретная зона” вокруг YES
-  const YES_FORCE       = 1.60; // сила отталкивания от YES зоны
-  const FRICTION        = 0.88; // трение (плавность)
-  const MAX_SPEED       = 22;   // ограничение скорости
-  const OUTSIDE_MARGIN  = 40;   // насколько можно вылезать за край экрана
+  // Behavior params
+  const CURSOR_RADIUS   = 190;
+  const CURSOR_FORCE    = 1.25;
+  const YES_PAD         = 50;
+  const YES_FORCE       = 1.60;
+  const FRICTION        = 0.88;
+  const MAX_SPEED       = 18;
+  const OUTSIDE_MARGIN  = 40;
 
   function repelFromPoint(cx, cy, px, py, radius, force){
     const dx = cx - px;
     const dy = cy - py;
     const dist = Math.hypot(dx, dy) || 1;
-
     if (dist >= radius) return;
 
-    // чем ближе — тем сильнее (квадрат)
     const k = 1 - (dist / radius);
     const f = (k * k) * force;
 
@@ -243,7 +249,6 @@
     const dy = cy - ny;
     const dist = Math.hypot(dx, dy) || 1;
 
-    // если внутри запретной зоны — сильно выталкиваем
     if (cx >= left && cx <= right && cy >= top && cy <= bottom) {
       const f = force * 2.2;
       vx += (dx / dist) * f;
@@ -251,7 +256,6 @@
       return;
     }
 
-    // если рядом — мягко выталкиваем
     const nearRadius = 120;
     if (dist < nearRadius) {
       const k = 1 - dist / nearRadius;
@@ -262,7 +266,7 @@
   }
 
   function bounds(){
-    const out = OUTSIDE_MARGIN; // даём вылезать
+    const out = OUTSIDE_MARGIN;
     const minX = -out;
     const minY = -out;
     const maxX = window.innerWidth  - noW + out;
@@ -271,22 +275,21 @@
   }
 
   function tick(){
-    // центр кнопки
     const cx = x + noW / 2;
     const cy = y + noH / 2;
 
-    // 1) отталкивание от курсора
-    repelFromPoint(cx, cy, cursorX, cursorY, CURSOR_RADIUS, CURSOR_FORCE);
+    // repel from cursor only after first pointer move
+    if (hasPointer) {
+      repelFromPoint(cx, cy, cursorX, cursorY, CURSOR_RADIUS, CURSOR_FORCE);
+    }
 
-    // 2) отталкивание от зоны YES (чтобы No НИКОГДА не заезжала на Yes)
+    // never overlap YES
     const yesRect = yesBtn.getBoundingClientRect();
     repelFromRect(cx, cy, yesRect, YES_PAD, YES_FORCE);
 
-    // 3) интеграция скорости + трение
     vx *= FRICTION;
     vy *= FRICTION;
 
-    // лимит скорости
     const sp = Math.hypot(vx, vy);
     if (sp > MAX_SPEED) {
       vx = (vx / sp) * MAX_SPEED;
@@ -296,25 +299,36 @@
     x += vx;
     y += vy;
 
-    // 4) границы (может вылезать чуть за экран)
     const { minX, minY, maxX, maxY } = bounds();
-
-    // мягкий “отскок”, чтобы не улетала навсегда
     if (x < minX) { x = minX; vx *= -0.55; }
     if (y < minY) { y = minY; vy *= -0.55; }
     if (x > maxX) { x = maxX; vx *= -0.55; }
     if (y > maxY) { y = maxY; vy *= -0.55; }
 
     noBtn.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // обновления размеров/границ
   window.addEventListener("resize", () => {
     measureNo();
   });
+
+  // Hearts
+  const heartsWrap = document.getElementById("hearts");
+  const HEARTS = 28;
+  for(let i=0;i<HEARTS;i++){
+    const h = document.createElement("div");
+    h.className = "heart";
+    h.style.left = Math.random()*100 + "vw";
+    h.style.top  = (60 + Math.random()*60) + "vh";
+    h.style.opacity = (0.35 + Math.random()*0.35).toFixed(2);
+    const scale = 1.0 + Math.random()*2.2;
+    h.style.transform = `rotate(45deg) scale(${scale})`;
+    h.style.animationDuration = (6 + Math.random()*8).toFixed(2) + "s";
+    h.style.animationDelay = (-Math.random()*10).toFixed(2) + "s";
+    heartsWrap.appendChild(h);
+  }
 </script>
 </body>
 </html>
