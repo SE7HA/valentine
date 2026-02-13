@@ -8,7 +8,7 @@
     :root{
       --bg1:#fff6fb;
       --bg2:#f3f6ff;
-      --card:#ffffffd8;      /* как на первой */
+      --card:#ffffffd8;
       --text:#2b2b2b;
       --muted:#6b6b6b;
       --border:#00000010;
@@ -30,7 +30,6 @@
       padding:18px;
     }
 
-    /* ✅ делаем карточку такого же размера/стиля, как на index */
     .card{
       width:min(760px, 92vw);
       background:var(--card);
@@ -42,19 +41,22 @@
       text-align:center;
     }
 
+    /* ✅ делаем заголовок таким же “жирным/крупным” как на index */
     h1{
       margin:0 0 10px;
-      font-size: clamp(22px, 3vw, 30px);
+      font-size: clamp(26px, 4.2vw, 42px); /* как в index */
       line-height:1.15;
       letter-spacing:-0.02em;
+      font-weight: 800;                   /* ✅ жирнее */
     }
+
     p{
       margin:0 0 16px;
       color:var(--muted);
       font-size: clamp(13px, 1.8vw, 16px);
+      font-weight: 600;                   /* ✅ чуть жирнее как на index ощущается */
     }
 
-    /* ✅ увеличили стикер, чтобы по ощущению совпадал с большой головой */
     img{
       display:block;
       margin: 0 auto;
@@ -79,8 +81,8 @@
 </head>
 <body>
   <main class="card">
-    <h1>Yay! 💞</h1>
-    <p>Officially: you’re my Valentine.</p>
+    <h1>YESSS!!</h1>
+    <p>I LUV U BBY!!! 💞💞💞 </p>
     <img src="./kiss.png" alt="kiss">
     <a href="./index.html">back</a>
   </main>
